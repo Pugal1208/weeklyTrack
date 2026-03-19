@@ -407,14 +407,27 @@ export default function AdminDashboard() {
                     </Box>
                     <Box>
                       <Typography variant="h6">All Submissions</Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" color="text.secondary"
+                        sx={{ display: { xs: 'none', sm: 'block' } }}>
                         Grouped by week · hover for full text
                       </Typography>
                     </Box>
                   </Box>
-                  <Button size="small" startIcon={<RefreshIcon />} onClick={loadSubmissions} variant="outlined" sx={{ borderRadius: 2 }}>
-                    Refresh
-                  </Button>
+                  {/* Refresh: icon-only on mobile, full on sm+ */}
+                  <Tooltip title="Refresh">
+                    <Box sx={{ display: { xs: 'flex', sm: 'none' } }}>
+                      <IconButton size="small" onClick={loadSubmissions}
+                        sx={{ border: '1px solid rgba(79,70,229,0.3)', borderRadius: 1.5 }}>
+                        <RefreshIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  </Tooltip>
+                  <Box sx={{ display: { xs: 'none', sm: 'flex' } }}>
+                    <Button size="small" startIcon={<RefreshIcon />} onClick={loadSubmissions}
+                      variant="outlined" sx={{ borderRadius: 2 }}>
+                      Refresh
+                    </Button>
+                  </Box>
                 </Box>
 
                 {submissionsLoading ? (
@@ -447,36 +460,76 @@ export default function AdminDashboard() {
                         }}
                       >
                         <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: '#F1F5F9' }}>
-                          <Box display="flex" alignItems="center" gap={1} flex={1}>
-                            <Chip label={`Week ${week}`} color="primary" size="small" sx={{ fontWeight: 700 }} />
-                            <Typography variant="body2" color="text.secondary">{year}</Typography>
-                            <Chip
-                              icon={<PersonIcon sx={{ fontSize: '14px !important' }} />}
-                              label={`${rows.length} submission${rows.length > 1 ? 's' : ''}`}
-                              size="small" variant="outlined" sx={{ ml: 1 }}
-                            />
-                            <Box ml="auto" mr={1}>
-                              <Button
-                                size="small"
-                                variant="contained"
-                                startIcon={<DownloadIcon />}
-                                onClick={(e) => { e.stopPropagation(); exportToWord(weekKey, rows, questions); }}
-                                sx={{
-                                  background: 'linear-gradient(135deg, #4F46E5 0%, #818CF8 100%)',
-                                  borderRadius: 2, fontSize: '0.7rem', py: 0.5, px: 1.5,
-                                  boxShadow: '0 2px 8px rgba(79,70,229,0.3)',
-                                  '&:hover': { boxShadow: '0 4px 12px rgba(79,70,229,0.45)' },
-                                }}
-                              >
-                                Export Word
-                              </Button>
+                          <Box display="flex" alignItems="center" gap={1} flex={1} minWidth={0}>
+                            {/* Week chip — always visible */}
+                            <Chip label={`Week ${week}`} color="primary" size="small" sx={{ fontWeight: 700, flexShrink: 0 }} />
+
+                            {/* Year — hidden on xs portrait, visible sm+ */}
+                            <Typography variant="body2" color="text.secondary"
+                              sx={{ display: { xs: 'none', sm: 'block' }, flexShrink: 0 }}>
+                              {year}
+                            </Typography>
+
+                            {/* Submission count — icon-only on xs, full chip on sm+ */}
+                            <Box sx={{ display: { xs: 'flex', sm: 'none' }, alignItems: 'center', ml: 0.5 }} onClick={(e) => e.stopPropagation()}>
+                              <Tooltip title={`${rows.length} submission${rows.length > 1 ? 's' : ''}`}>
+                                <Chip
+                                  icon={<PersonIcon sx={{ fontSize: '14px !important' }} />}
+                                  label={rows.length}
+                                  size="small" variant="outlined"
+                                />
+                              </Tooltip>
+                            </Box>
+                            <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', ml: 0.5 }}>
+                              <Chip
+                                icon={<PersonIcon sx={{ fontSize: '14px !important' }} />}
+                                label={`${rows.length} submission${rows.length > 1 ? 's' : ''}`}
+                                size="small" variant="outlined"
+                              />
+                            </Box>
+
+                            {/* Export button — icon-only on xs, full on sm+ */}
+                            <Box ml="auto" mr={1} flexShrink={0}>
+                              {/* Mobile: icon-only */}
+                              <Tooltip title="Export to Word">
+                                <Box sx={{ display: { xs: 'flex', sm: 'none' } }}>
+                                  <IconButton
+                                    size="small"
+                                    onClick={(e) => { e.stopPropagation(); exportToWord(weekKey, rows, questions); }}
+                                    sx={{
+                                      background: 'linear-gradient(135deg, #4F46E5 0%, #818CF8 100%)',
+                                      color: 'white', borderRadius: 1.5,
+                                      '&:hover': { background: '#4F46E5' },
+                                    }}
+                                  >
+                                    <DownloadIcon fontSize="small" />
+                                  </IconButton>
+                                </Box>
+                              </Tooltip>
+                              {/* Landscape / desktop: full button */}
+                              <Box sx={{ display: { xs: 'none', sm: 'flex' } }}>
+                                <Button
+                                  size="small"
+                                  variant="contained"
+                                  startIcon={<DownloadIcon />}
+                                  onClick={(e) => { e.stopPropagation(); exportToWord(weekKey, rows, questions); }}
+                                  sx={{
+                                    background: 'linear-gradient(135deg, #4F46E5 0%, #818CF8 100%)',
+                                    borderRadius: 2, fontSize: '0.7rem', py: 0.5, px: 1.5,
+                                    boxShadow: '0 2px 8px rgba(79,70,229,0.3)',
+                                    '&:hover': { boxShadow: '0 4px 12px rgba(79,70,229,0.45)' },
+                                  }}
+                                >
+                                  Export Word
+                                </Button>
+                              </Box>
                             </Box>
                           </Box>
                         </AccordionSummary>
 
                         <AccordionDetails sx={{ p: 0 }}>
-                          <TableContainer>
-                            <Table size="small">
+                          <TableContainer sx={{ overflowX: 'auto' }}>
+                            <Table size="small" sx={{ minWidth: { xs: 480, sm: 'auto' } }}>
                               <TableHead>
                                 <TableRow sx={{ bgcolor: '#F8FAFC' }}>
                                   <TableCell sx={{ fontWeight: 700, minWidth: 100 }}>User</TableCell>
