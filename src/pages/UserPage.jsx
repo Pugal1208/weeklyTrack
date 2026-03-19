@@ -13,6 +13,14 @@ import {
   Snackbar,
   Chip,
   Divider,
+  Radio,
+  RadioGroup,
+  FormControlLabel,
+  FormControl,
+  FormLabel,
+  Select,
+  MenuItem,
+  InputLabel,
 } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
@@ -26,6 +34,110 @@ import { useAuth } from '../context/AuthContext';
 import { getQuestions, hasSubmittedThisWeek, submitAnswers } from '../firebase/firestore';
 import { getISOWeekNumber, getWeekKey } from '../hooks/useWeekNumber';
 
+// ── Type-aware Question Input ─────────────────────────────────────────────────
+function QuestionInput({ question, index, value, onChange, disabled }) {
+  const { text, type, options = [] } = question;
+
+  const label = `${index + 1}. ${text || `Question ${index + 1}`}`;
+
+  switch (type) {
+    case 'textfield':
+      return (
+        <Box>
+          <Typography variant="body2" fontWeight={600} color="text.primary" mb={1}>{label}</Typography>
+          <TextField
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
+            fullWidth
+            placeholder="Type your answer here…"
+            disabled={disabled}
+            id={`answer-q${index}`}
+            sx={{ '& .MuiOutlinedInput-root': { bgcolor: disabled ? '#F8FAFC' : 'white' } }}
+          />
+        </Box>
+      );
+
+    case 'date':
+      return (
+        <Box>
+          <Typography variant="body2" fontWeight={600} color="text.primary" mb={1}>{label}</Typography>
+          <TextField
+            type="date"
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
+            fullWidth
+            disabled={disabled}
+            id={`answer-q${index}`}
+            InputLabelProps={{ shrink: true }}
+            sx={{ '& .MuiOutlinedInput-root': { bgcolor: disabled ? '#F8FAFC' : 'white' } }}
+          />
+        </Box>
+      );
+
+    case 'radio':
+      return (
+        <FormControl component="fieldset" disabled={disabled}>
+          <FormLabel component="legend" sx={{ fontWeight: 600, color: 'text.primary', mb: 0.5 }}>
+            {label}
+          </FormLabel>
+          <RadioGroup
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
+            id={`answer-q${index}`}
+          >
+            {options.filter(Boolean).map((opt, i) => (
+              <FormControlLabel key={i} value={opt} control={<Radio />} label={opt} />
+            ))}
+          </RadioGroup>
+        </FormControl>
+      );
+
+    case 'select':
+      return (
+        <Box>
+          <Typography variant="body2" fontWeight={600} color="text.primary" mb={1}>{label}</Typography>
+          <FormControl fullWidth disabled={disabled}>
+            <InputLabel id={`select-label-q${index}`}>Select an option</InputLabel>
+            <Select
+              labelId={`select-label-q${index}`}
+              id={`answer-q${index}`}
+              value={value || ''}
+              label="Select an option"
+              onChange={(e) => onChange(e.target.value)}
+              sx={{ bgcolor: disabled ? '#F8FAFC' : 'white' }}
+            >
+              {options.filter(Boolean).map((opt, i) => (
+                <MenuItem key={i} value={opt}>{opt}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+      );
+
+    case 'textarea':
+    default:
+      return (
+        <Box>
+          <Typography variant="body2" fontWeight={600} color="text.primary" mb={1}>{label}</Typography>
+          <TextField
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
+            fullWidth
+            multiline
+            minRows={2}
+            maxRows={5}
+            placeholder="Type your answer here…"
+            disabled={disabled}
+            id={`answer-q${index}`}
+            sx={{ '& .MuiOutlinedInput-root': { bgcolor: disabled ? '#F8FAFC' : 'white' } }}
+          />
+        </Box>
+      );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function UserPage() {
   const { currentUser } = useAuth();
   const userName = currentUser?.name || '';
@@ -37,15 +149,18 @@ export default function UserPage() {
 
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
-  const [pageLoading, setPageLoading] = useState(true);   // initial data fetch
+  const [pageLoading, setPageLoading] = useState(true);
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [error, setError] = useState('');
   const [snackOpen, setSnackOpen] = useState(false);
 
-  // Validate: all questions answered
-  const allAnswered = questions.length === 5 && questions.every((_, i) => answers[`q${i}`]?.trim());
+  // All questions must have a non-empty answer
+  const allAnswered = questions.length > 0 && questions.every((_, i) => {
+    const val = answers[`q${i}`];
+    return val !== undefined && String(val).trim() !== '';
+  });
 
   useEffect(() => {
     async function loadData() {
@@ -60,7 +175,7 @@ export default function UserPage() {
         const init = {};
         qs.forEach((_, i) => { init[`q${i}`] = ''; });
         setAnswers(init);
-      } catch (err) {
+      } catch {
         setError('Failed to load data. Please refresh.');
       } finally {
         setPageLoading(false);
@@ -86,38 +201,33 @@ export default function UserPage() {
       setAlreadySubmitted(true);
       setSubmitSuccess(true);
       setSnackOpen(true);
-    } catch (err) {
+    } catch {
       setError('Submission failed. Please try again.');
     } finally {
       setSubmitting(false);
     }
   };
 
+  const noQuestions = !pageLoading && questions.every((q) => !q.text?.trim());
+
   return (
-    <Box
-      minHeight="100vh"
-      sx={{ background: 'linear-gradient(135deg, #F0FDF4 0%, #EEF2FF 100%)' }}
-    >
+    <Box minHeight="100vh" sx={{ background: 'linear-gradient(135deg, #F0FDF4 0%, #EEF2FF 100%)' }}>
       <Navbar />
 
       <Box sx={{ maxWidth: 680, mx: 'auto', px: { xs: 2, md: 4 }, py: 4 }}>
         {/* Page header */}
         <Box mb={4}>
           <Box display="flex" alignItems="center" gap={1.5} mb={1}>
-            <Box
-              sx={{
-                width: 44, height: 44, borderRadius: 2,
-                background: 'linear-gradient(135deg, #0EA5E9 0%, #38BDF8 100%)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 4px 12px rgba(14,165,233,0.3)',
-              }}
-            >
+            <Box sx={{
+              width: 44, height: 44, borderRadius: 2,
+              background: 'linear-gradient(135deg, #0EA5E9 0%, #38BDF8 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(14,165,233,0.3)',
+            }}>
               <AssignmentIcon sx={{ color: 'white', fontSize: 24 }} />
             </Box>
             <Box>
-              <Typography variant="h5" color="text.primary">
-                Weekly Check-in
-              </Typography>
+              <Typography variant="h5" color="text.primary">Weekly Check-in</Typography>
               <Typography variant="caption" color="text.secondary">
                 Hi, <strong>{userName}</strong>! Please complete your weekly submission.
               </Typography>
@@ -128,18 +238,13 @@ export default function UserPage() {
             <Chip
               icon={<CalendarIcon sx={{ fontSize: '14px !important' }} />}
               label={`Week ${weekNumber} · ${year}`}
-              color="primary"
-              variant="outlined"
-              size="small"
-              sx={{ fontWeight: 600 }}
+              color="primary" variant="outlined" size="small" sx={{ fontWeight: 600 }}
             />
             {alreadySubmitted && (
               <Chip
                 icon={<CheckCircleIcon sx={{ fontSize: '14px !important' }} />}
                 label="Submitted this week"
-                color="success"
-                size="small"
-                sx={{ fontWeight: 600 }}
+                color="success" size="small" sx={{ fontWeight: 600 }}
               />
             )}
           </Box>
@@ -147,11 +252,8 @@ export default function UserPage() {
 
         {/* Already submitted banner */}
         {alreadySubmitted && !pageLoading && (
-          <Alert
-            severity="success"
-            icon={<CheckCircleIcon />}
-            sx={{ mb: 3, borderRadius: 3, border: '1px solid #BBF7D0' }}
-          >
+          <Alert severity="success" icon={<CheckCircleIcon />}
+            sx={{ mb: 3, borderRadius: 3, border: '1px solid #BBF7D0' }}>
             <AlertTitle sx={{ fontWeight: 700 }}>
               {submitSuccess ? 'Submission Received!' : 'Already Submitted'}
             </AlertTitle>
@@ -164,7 +266,6 @@ export default function UserPage() {
         <Card elevation={0} sx={{ border: '1px solid rgba(79,70,229,0.12)' }}>
           {submitting && <LinearProgress color="primary" />}
           <CardContent sx={{ p: 4 }}>
-            {/* Loading skeletons */}
             {pageLoading ? (
               <Box display="flex" flexDirection="column" gap={3}>
                 <Skeleton variant="text" width="60%" height={32} />
@@ -178,44 +279,24 @@ export default function UserPage() {
               </Box>
             ) : error && questions.length === 0 ? (
               <Alert severity="error">{error}</Alert>
-            ) : questions.every((q) => q.trim() === '') ? (
+            ) : noQuestions ? (
               <Alert severity="info">
                 No questions have been configured by the admin yet. Please check back later.
               </Alert>
             ) : (
               <Box component="form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={3}>
-                <Typography variant="h6" color="text.primary">
-                  This Week's Questions
-                </Typography>
+                <Typography variant="h6" color="text.primary">This Week's Questions</Typography>
                 <Divider />
 
                 {questions.map((q, i) => (
-                  <Box key={i}>
-                    <Typography
-                      variant="body2"
-                      fontWeight={600}
-                      color="text.primary"
-                      mb={1}
-                    >
-                      {i + 1}. {q || `Question ${i + 1}`}
-                    </Typography>
-                    <TextField
-                      value={answers[`q${i}`] || ''}
-                      onChange={(e) => handleChange(`q${i}`, e.target.value)}
-                      fullWidth
-                      multiline
-                      minRows={2}
-                      maxRows={5}
-                      placeholder="Type your answer here…"
-                      disabled={alreadySubmitted}
-                      id={`answer-q${i}`}
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          bgcolor: alreadySubmitted ? '#F8FAFC' : 'white',
-                        },
-                      }}
-                    />
-                  </Box>
+                  <QuestionInput
+                    key={i}
+                    question={q}
+                    index={i}
+                    value={answers[`q${i}`]}
+                    onChange={(val) => handleChange(`q${i}`, val)}
+                    disabled={alreadySubmitted}
+                  />
                 ))}
 
                 {error && <Alert severity="error">{error}</Alert>}
@@ -226,13 +307,7 @@ export default function UserPage() {
                   size="large"
                   fullWidth
                   disabled={alreadySubmitted || submitting || !allAnswered}
-                  startIcon={
-                    alreadySubmitted
-                      ? <LockIcon />
-                      : submitting
-                        ? null
-                        : <SendIcon />
-                  }
+                  startIcon={alreadySubmitted ? <LockIcon /> : submitting ? null : <SendIcon />}
                   sx={{
                     mt: 1,
                     ...(alreadySubmitted && {
@@ -242,11 +317,7 @@ export default function UserPage() {
                     }),
                   }}
                 >
-                  {alreadySubmitted
-                    ? 'Already Submitted'
-                    : submitting
-                      ? 'Submitting…'
-                      : 'Submit My Answers'}
+                  {alreadySubmitted ? 'Already Submitted' : submitting ? 'Submitting…' : 'Submit My Answers'}
                 </Button>
               </Box>
             )}
@@ -258,19 +329,10 @@ export default function UserPage() {
         </Typography>
       </Box>
 
-      <Snackbar
-        open={snackOpen}
-        autoHideDuration={5000}
-        onClose={() => setSnackOpen(false)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          severity="success"
-          variant="filled"
-          onClose={() => setSnackOpen(false)}
-          sx={{ borderRadius: 2 }}
-          icon={<CheckCircleIcon />}
-        >
+      <Snackbar open={snackOpen} autoHideDuration={5000} onClose={() => setSnackOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert severity="success" variant="filled" onClose={() => setSnackOpen(false)}
+          sx={{ borderRadius: 2 }} icon={<CheckCircleIcon />}>
           Answers submitted successfully for Week {weekNumber}!
         </Alert>
       </Snackbar>

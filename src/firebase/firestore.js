@@ -14,17 +14,34 @@ import { db } from './config';
 
 // ─── Questions ────────────────────────────────────────────────────────────────
 
+/** Default blank question object */
+export const blankQuestion = () => ({ text: '', type: 'textarea', options: [] });
+
+/**
+ * Normalize questions from Firestore: converts legacy string[] to object[].
+ * @param {Array} raw
+ * @returns {{ text: string, type: string, options: string[] }[]}
+ */
+function normalizeQuestions(raw) {
+  if (!Array.isArray(raw) || raw.length === 0) return Array(5).fill(null).map(blankQuestion);
+  return raw.map((q) =>
+    typeof q === 'string'
+      ? { text: q, type: 'textarea', options: [] }
+      : { text: q.text || '', type: q.type || 'textarea', options: q.options || [] }
+  );
+}
+
 /**
  * Fetch admin-defined questions from Firestore.
- * Returns an array of 5 question strings (empty strings as default).
+ * Returns an array of normalized question objects.
  */
 export async function getQuestions() {
   const ref = doc(db, 'questions', 'config');
   const snap = await getDoc(ref);
   if (snap.exists()) {
-    return snap.data().questions || Array(5).fill('');
+    return normalizeQuestions(snap.data().questions);
   }
-  return Array(5).fill('');
+  return Array(5).fill(null).map(blankQuestion);
 }
 
 /**
